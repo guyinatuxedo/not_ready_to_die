@@ -15,4 +15,7 @@ dns server, pages 1-4
 Interesting:
 ```
 https://github.com/pepperke/dns_server
+/Hackery/dns_servers/dns_server
+
+https://github.com/901/dns-server.git
 ```
