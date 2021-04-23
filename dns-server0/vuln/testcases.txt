@@ -1,0 +1,165 @@
+Internet Technology
+Assignment 7
+dns-server.c
+Aditya Geria, Monisha Jain, Jeevana Lagisetty
+
+===============================================
+Section 1: Notes on Compiling and Execution   |
+===============================================
+- Using the Makefile provided, simply run "make" to create a "dns-server"
+executable file. 
+- In a shell, run "./dns-server -f (hosts file name) (optional -p port)"
+	- the parameters can be provided in any order
+	- You must provide a file in the format specified 
+- After using, use "make clean" to clear any executables
+
+===============================================
+Section 2: Discussion of Algorithm            |
+===============================================
+
+- First, parse the user provided parameters and check for a file to provide
+host names
+- Then parse the hosts file and store the (address, name) n-tuples into a struct
+host array of length 50.
+- Set up the UDP Socket
+- After receiving a datagram, check if its a valid query (qr == 0) by casting the first part
+to be (dns_header) struct.
+	- else return opcode 4 back to client
+- Parse the query name after the header and retrieve the domain name it is looking for
+	- store the found name as a conventional domain name "www.website.com" format
+- Copy the query name (in original form) into a second query name, for use with answer record
+- Match domain name with an address
+	- If no match, return an opcode 3 dns_header back to client
+- Turn matching IP address into an unsigned int, in network format, with ip_to_int(const char*)
+- Modify header fields to be a response
+- Add the second query name in, as required by DNS format
+- Add a DNS response_record (dns_rrhdr) struct in, with appropriate fields
+- Add the IP address following the dns_rrhdr.
+- Send back to client
+
+===============================================
+Section 3: Bugs and Pecularities              |
+===============================================
+
+---------
+Bugs    |
+---------
+- There are really no outstanding bugs to be discussed
+- One possible problem is when the client is sent an opcode 3/4 message (not found)
+There is no question section shown. This is intentional.
+- Another possible error that might occur is when there are malformed lines in the hosts.txt such as:
+	- 1.1.1.1 #this is a comment
+	- 1.1.1.1 www.google.com#this is a comment
+	- www.google.com 1.1.1.1
+
+-----------------------------
+Pecularities/Design Choices |
+-----------------------------
+- Given this is not a practical program by any means, and given that this exact program will not be
+used for real-world-applications, the maximum number of hosts that can be stored is 50. 
+	- Meaning there can only be a maximum of 50 (address, host name) pairs stored or given in the file.
+
+
+===============================================
+Section 4: Test Scenarios		      |
+===============================================
+
+Scenario 1 (simple case) :
+> This case applies whenever the user sends a normal dig query to the server while it
+> is running as intended.
+> For example: "dig @localhost -p (port server is on) www.google.com"
+
+	- The hosts file contains:
+		| #comment
+		| 1.1.1.1 www.hello.com
+		| 2.2.2.2    www.google.com
+		| 3.3.3.3 	www.yahoo.com
+		| 4.4.4.4 pk.org
+
+	- dig client sends a query for "www.google.com", and is returned:
+		| ....(header stuff)....
+		|
+		| ;; QUESTION SECTION:
+		| ;www.google.com.                        IN      A
+		|
+		| ;; ANSWER SECTION:
+		| www.google.com.         20      IN      A       2.2.2.2
+		|
+		| ....(timestamp stuff)...
+
+
+Scenario 2 (opcode 3 - failed to resolve host) :
+> This case applies whenever the user sends a normal dig query to the server while it
+> is running as intended. However, the dig query cannot be resolved because it is not in the
+> hosts file provided.
+
+	- The hosts file contains:
+		| #comment
+		| 1.1.1.1 www.hello.com
+		| 2.2.2.2    www.google.com
+		| 3.3.3.3 	www.yahoo.com
+		| 4.4.4.4 pk.org	
+	
+	- dig client sends a query for "www.google", and is returned
+		| ;; Got answer:
+		| ;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 12551
+		| ;; flags: qr aa rd; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+		| ;; WARNING: recursion requested but not available
+		| ;; WARNING: Messages has 11 extra bytes at end
+		|	 
+		| ;; Query time: 0 msec
+		| ;; SERVER: 127.0.0.1#12345(127.0.0.1)
+		| ;; WHEN: Fri Apr  1 19:30:06 2016
+		| ;; MSG SIZE  rcvd: 23
+
+Scenario 3 (server disconnect) :
+> Server disconnects while the client is expecting to receive information
+- In this case, assuming the client is dig, the client will not be able to show
+any information and will simply try to ping the server 3 times before exiting
+
+Scenario 4 (opcode 4 - not implemented) :
+- In the case of an irregular query, the server will return a similar message to Scenario 2.
+The status will have opcode 4 instead.
+
+Scenario 5:
+> Using an invalid number of command-line arguments, or using incorrect command line arguments
+
+	a) User attempts to run "./dns-server -p"
+		- Program returns: "Invalid number of argments. Use only -p and -f" and exits.
+	b) User attempts to run "./dns-server -p -f"
+		- Program returns: "No host file provided, use -f to provide a hosts file" and exits.
+	c) User attempts to run "./dns-server"
+		- Program returns: "Invalid number of argments. Use only -p and -f" and exits.
+	d) User attmepts to run "./dns-server ffff"
+		- Program returns: "Invalid number of argments. Use only -p and -f" and exits.
+	e) User attempts to run " ./dns-server -p 1154 -f hosts.txt ffff"
+		- Program returns: "Invalid number of argments. Use only -p and -f" and exits.
+
+===============================================
+Section 5: Difficulties encountered	      |
+===============================================
+
+In completion of this project, we have encountered several difficulties. These are due to somewhat limited
+technical know-how, and due to not completely understanding the specifics of DNS. 
+
+Mainly, pointer management quickly became a hassle as we started to add new elements to the datagram we received
+as well cast certain parts to different structs. Also, these pointers would sometimes require us to be very precise
+in their placement due to the nature of the task. Even 1 byte off could mean the code does not work.
+
+Also, we did not understand for the longest time that the query name needs to be replicated, and that the
+dns_question_header needs to follow the first query, and the response header needs to follow the second query
+name. After realizing this, and doing complex pointer arithmetic, we finally got dig to recognize our answer query.
+
+Converting to network format with htonl()/htons() functions was also a big oversight, as we were reading 256 queries
+instead of 1.
+
+===============================================
+Section 6: Conclusion			      |
+===============================================
+
+Overall, we feel that this project was a very practical and demanding exercise. It was initially difficult
+since we did not clearly understand the structure of a DNS query and response record. I think the assignment 
+is very straightforward once one understands the logic behind a DNS exchange.
+We decided to do the project in C because the header would be provided, because C allows low-level access
+to bits, and because C allows us to freely cast the void* datagram we were provided with. Powerful functions like
+memcpy() also proved invaluable throughout.
