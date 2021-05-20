@@ -1,9 +1,3 @@
 # not_ready_to_die
 
-checked:
-```
-https://github.com/vietor/dnsproxy
-https://github.com/901/dns-server.git
-https://github.com/pepperke/dns_server
-```
-
+So this is a project where for the fun of it, I just find random github projects with vulnerabilities, patch the bug, and submit PRs/issues to fix it.
